@@ -188,7 +188,7 @@ public class Bootstrap {
     @Builder
     public static class HttpOptions {
 
-        private final Integer httpPort = 60000;
+        private final Integer httpPort = 18887;
 
         @Builder.Default
         private Boolean ssl = false;

@@ -46,7 +46,7 @@ public class AutoMqttConfiguration {
         String start = "\n-------------------------------------------------------------\n\t";
         start += String.format("Smqtt mqtt connect url %s:%s \n\t", IPUtils.getIP(), bootstrap.getTcpConfig().getPort());
         if (bootstrap.getHttpConfig() != null && bootstrap.getHttpConfig().isEnable()) {
-            Integer port = 60000;
+            Integer port = 18887;
             start += String.format("Smqtt-Admin UI is running AccessURLs:\n\t" +
                     "Http Local url:    http://localhost:%s/smqtt/admin" + "\n\t" +
                     "Http External url: http://%s:%s/smqtt/admin" + "\n" +

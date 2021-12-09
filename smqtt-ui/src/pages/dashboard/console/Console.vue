@@ -347,10 +347,10 @@ export default {
             if(this.isCluster){
                host = this.nodeInfo[0]['host']
             }
-            let jvm = `http://${host}:60000/smqtt/monitor/jvm`
-            let cpu = `http://${host}:60000/smqtt/monitor/cpu`
-            let counter = `http://${host}:60000/smqtt/monitor/counter`
-            let event = `http://${host}:60000/smqtt/monitor/event`
+            let jvm = `http://${host}:18887/smqtt/monitor/jvm`
+            let cpu = `http://${host}:18887/smqtt/monitor/cpu`
+            let counter = `http://${host}:18887/smqtt/monitor/counter`
+            let event = `http://${host}:18887/smqtt/monitor/event`
             let options = {
                 headers: {'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'},
             }

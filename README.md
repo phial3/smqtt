@@ -49,11 +49,11 @@ SMQTT基于reactor-netty(spring-webflux底层依赖)开发，底层采用Reactor
 
 > 大家不要恶意链接，谢谢！
 
-|  管理   | 说明  | 其他  |
-|  ----  | ----  |----  |
-| 123.57.69.210:1883  | mqtt端口 |用户名：smqtt 密码：smqtt |
-| 123.57.69.210:8999  | mqtt over websocket |用户名：smqtt 密码：smqtt  |
-| http://123.57.69.210:60000/smqtt/admin | 管理后台 |用户名：smqtt 密码：smqtt  |
+| 管理                                     | 说明  | 其他  |
+|----------------------------------------| ----  |----  |
+| 123.57.69.210:1883                     | mqtt端口 |用户名：smqtt 密码：smqtt |
+| 123.57.69.210:8999                     | mqtt over websocket |用户名：smqtt 密码：smqtt  |
+| http://123.57.69.210:18887/smqtt/admin | 管理后台 |用户名：smqtt 密码：smqtt  |
 
 ## 启动方式
 
