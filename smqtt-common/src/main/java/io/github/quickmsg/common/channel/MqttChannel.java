@@ -1,6 +1,9 @@
 package io.github.quickmsg.common.channel;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import io.github.quickmsg.common.ack.Ack;
+import io.github.quickmsg.common.ack.RetryAck;
+import io.github.quickmsg.common.ack.TimeAckManager;
 import io.github.quickmsg.common.enums.ChannelStatus;
 import io.github.quickmsg.common.topic.SubscribeTopic;
 import io.github.quickmsg.common.utils.MessageUtils;
@@ -74,6 +77,9 @@ public class MqttChannel {
     private Disposable closeDisposable;
 
 
+    @JsonIgnore
+    private TimeAckManager timeAckManager;
+
     public void disposableClose() {
         if (closeDisposable != null && !closeDisposable.isDisposed()) {
             closeDisposable.dispose();
@@ -82,11 +88,11 @@ public class MqttChannel {
 
 
     public boolean isActive() {
-        return !connection.isDisposed();
+        return connection == null && !connection.isDisposed();
     }
 
 
-    public static MqttChannel init(Connection connection) {
+    public static MqttChannel init(Connection connection, TimeAckManager timeAckManager) {
         MqttChannel mqttChannel = new MqttChannel();
         mqttChannel.setTopics(new CopyOnWriteArraySet<>());
         mqttChannel.setAtomicInteger(new AtomicInteger(0));
@@ -97,6 +103,7 @@ public class MqttChannel {
         mqttChannel.setConnection(connection);
         mqttChannel.setStatus(ChannelStatus.INIT);
         mqttChannel.setAddress(connection.address().toString());
+        mqttChannel.setTimeAckManager(timeAckManager);
         return mqttChannel;
     }
 
@@ -179,6 +186,11 @@ public class MqttChannel {
     }
 
 
+    public long generateId(MqttMessageType type, Integer messageId) {
+        return (long) connection.channel().hashCode() << 5 | (long) type.value() << 4 | messageId;
+    }
+
+
     /**
      * 写入消息
      *
@@ -191,7 +203,7 @@ public class MqttChannel {
         if (this.getIsMock() && !this.active()) {
             return Mono.empty();
         } else {
-            return MqttMessageSink.MQTT_SINK.sendMessage(mqttMessage, this, retry, replyMqttMessageMap);
+            return MqttMessageSink.MQTT_SINK.sendMessage(mqttMessage, this, retry);
         }
     }
 
@@ -214,9 +226,7 @@ public class MqttChannel {
      * @param messageId messageId
      */
     private void removeReply(MqttMessageType type, Integer messageId) {
-        Optional.ofNullable(replyMqttMessageMap.get(type))
-                .map(messageIds -> messageIds.remove(messageId))
-                .ifPresent(Disposable::dispose);
+        Optional.ofNullable(replyMqttMessageMap.get(type)).map(messageIds -> messageIds.remove(messageId)).ifPresent(Disposable::dispose);
     }
 
 
@@ -251,7 +261,7 @@ public class MqttChannel {
         public static MqttMessageSink MQTT_SINK = new MqttMessageSink();
 
 
-        public Mono<Void> sendMessage(MqttMessage mqttMessage, MqttChannel mqttChannel, boolean retry, Map<MqttMessageType, Map<Integer, Disposable>> replyMqttMessageMap) {
+        public Mono<Void> sendMessage(MqttMessage mqttMessage, MqttChannel mqttChannel, boolean retry) {
             if (log.isDebugEnabled()) {
                 log.debug("write channel {} message {}", mqttChannel.getConnection(), mqttMessage);
             }
@@ -260,7 +270,14 @@ public class MqttChannel {
                 Increase the reference count of bytebuf, and the reference count of retrybytebuf is 2
                 mqttChannel.write() method releases a reference count.
                  */
-                return mqttChannel.write(Mono.just(mqttMessage)).then(offerReply(getReplyMqttMessage(mqttMessage), mqttChannel, getMessageId(mqttMessage), replyMqttMessageMap));
+                MqttMessage reply = getReplyMqttMessage(mqttMessage);
+
+                Runnable runnable = () -> mqttChannel.write(Mono.just(reply)).subscribe();
+                Runnable cleaner = () -> MessageUtils.safeRelease(reply);;
+                Ack ack = new RetryAck(mqttChannel.generateId(reply.fixedHeader().messageType(), getMessageId(reply)),
+                        5, 5, runnable, mqttChannel.getTimeAckManager(), cleaner);
+                ack.start();
+                return mqttChannel.write(Mono.just(mqttMessage)).then();
             } else {
                 return mqttChannel.write(Mono.just(mqttMessage));
             }
@@ -284,7 +301,6 @@ public class MqttChannel {
             } else {
                 return mqttMessage;
             }
-
         }
 
 
@@ -296,12 +312,7 @@ public class MqttChannel {
          */
         private MqttMessage getDupMessage(MqttMessage mqttMessage) {
             MqttFixedHeader oldFixedHeader = mqttMessage.fixedHeader();
-            MqttFixedHeader fixedHeader = new MqttFixedHeader(
-                    oldFixedHeader.messageType(),
-                    true,
-                    oldFixedHeader.qosLevel(),
-                    oldFixedHeader.isRetain(),
-                    oldFixedHeader.remainingLength());
+            MqttFixedHeader fixedHeader = new MqttFixedHeader(oldFixedHeader.messageType(), true, oldFixedHeader.qosLevel(), oldFixedHeader.isRetain(), oldFixedHeader.remainingLength());
             Object payload = mqttMessage.payload();
             try {
                 Constructor<?> constructor = mqttMessage.getClass().getDeclaredConstructors()[0];
@@ -318,38 +329,34 @@ public class MqttChannel {
         }
 
 
-        /**
-         * Set resend action
-         *
-         * @param message             {@link MqttMessage}
-         * @param mqttChannel         {@link MqttChannel}
-         * @param messageId           messageId
-         * @param replyMqttMessageMap 重试缓存
-         * @return 空操作符
-         */
-        public Mono<Void> offerReply(MqttMessage message, final MqttChannel mqttChannel, final int messageId, Map<MqttMessageType, Map<Integer, Disposable>> replyMqttMessageMap) {
-            return Mono.fromRunnable(() ->
-                    replyMqttMessageMap.computeIfAbsent(message.fixedHeader().messageType(), mqttMessageType -> new ConcurrentHashMap<>(8)).put(messageId,
-                            mqttChannel.write(Mono.fromCallable(() -> getDupMessage(message)))
-                                    .delaySubscription(Duration.ofSeconds(5))
-                                    .repeat(10,mqttChannel::isActive)
-                                    .doOnError(error -> {
-                                        MessageUtils.safeRelease(message);
-                                        log.error("offerReply", error);
-                                    })
-                                    .doOnCancel(() -> MessageUtils.safeRelease(message))
-                                    .subscribe()));
-        }
+//        /**
+//         * Set resend action
+//         *
+//         * @param message             {@link MqttMessage}
+//         * @param mqttChannel         {@link MqttChannel}
+//         * @param messageId           messageId
+//         * @param replyMqttMessageMap 重试缓存
+//         * @return 空操作符
+//         */
+//        public Mono<Void> offerReply(MqttMessage message, final MqttChannel mqttChannel, final int messageId, Map<MqttMessageType, Map<Integer, Disposable>> replyMqttMessageMap) {
+//            return Mono.fromRunnable(() ->
+//                    replyMqttMessageMap.computeIfAbsent(message.fixedHeader().messageType(), mqttMessageType -> new ConcurrentHashMap<>(8)).put(messageId,
+//                            mqttChannel.write(Mono.fromCallable(() -> getDupMessage(message)))
+//                                    .delaySubscription(Duration.ofSeconds(5))
+//                                    .repeat(10,mqttChannel::isActive)
+//                                    .doOnError(error -> {
+//                                        MessageUtils.safeRelease(message);
+//                                        log.error("offerReply", error);
+//                                    })
+//                                    .doOnCancel(() -> MessageUtils.safeRelease(message))
+//                                    .subscribe()));
+//        }
 
     }
 
     @Override
     public String toString() {
-        return "MqttChannel{" +
-//                " address='" + this.connection.address().toString() + '\'' +
-                ", clientIdentifier='" + clientIdentifier + '\'' +
-                ", status=" + status +
-                ", keepalive=" + keepalive +
-                ", username='" + username + '}';
+        return "MqttChannel{" + " address='" + this.connection.address().toString() + '\'' + ", clientIdentifier='" + clientIdentifier + '\'' + ", status=" + status + ", keepalive=" + keepalive + ", username='" + username + '}';
     }
+
 }

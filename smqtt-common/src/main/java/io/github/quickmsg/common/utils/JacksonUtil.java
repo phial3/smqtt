@@ -27,13 +27,14 @@ public class JacksonUtil {
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         mapper.configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true);
 
+
     }
 
     public static String bean2Json(Object data) {
         try {
             return mapper.writeValueAsString(data);
         } catch (JsonProcessingException e) {
-            log.error("JacksonUtil bean2Json error", e);
+            log.error("JacksonUtil bean2Json {} error",data, e);
             return "";
         }
     }
