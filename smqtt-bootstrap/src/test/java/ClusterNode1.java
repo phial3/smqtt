@@ -1,5 +1,6 @@
 import ch.qos.logback.classic.Level;
 import io.github.quickmsg.common.config.BootstrapConfig;
+import io.github.quickmsg.common.config.SslContext;
 import io.github.quickmsg.core.Bootstrap;
 
 /**
@@ -22,9 +23,8 @@ public class ClusterNode1 {
                         BootstrapConfig
                                 .TcpConfig
                                 .builder()
-                                .port(8882)
-                                .username("smqtt")
-                                .password("smqtt")
+                                .port(1883)
+                                .ssl(SslContext.builder().enable(false).build())
                                 .build())
                 .httpConfig(
                         BootstrapConfig

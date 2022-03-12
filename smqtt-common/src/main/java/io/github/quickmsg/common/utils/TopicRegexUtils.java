@@ -5,6 +5,8 @@ package io.github.quickmsg.common.utils;
  */
 public class TopicRegexUtils {
 
+    public static final TopicRegexUtils instance = new TopicRegexUtils();
+
     public static String regexTopic(String topic) {
         if (topic.startsWith("$")) {
             topic = "\\" + topic;
@@ -15,5 +17,11 @@ public class TopicRegexUtils {
                 .replaceAll("#", "(.+)") + "$";
     }
 
+    public boolean match(String sourcesTopic, String targetTopic) {
+        if (sourcesTopic == null || "".equals(sourcesTopic) || targetTopic == null || "".equals(targetTopic)) {
+            return false;
+        }
+        return sourcesTopic.matches(TopicRegexUtils.regexTopic(targetTopic));
+    }
 
 }

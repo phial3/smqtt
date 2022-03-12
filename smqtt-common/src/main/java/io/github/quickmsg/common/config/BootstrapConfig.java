@@ -32,7 +32,7 @@ public class BootstrapConfig {
         smqttConfig.setLogLevel("INFO");
         bootstrapConfig.setSmqttConfig(smqttConfig);
         smqttConfig.setClusterConfig(ClusterConfig.builder()
-                        .enable(false).build());
+                .enable(false).build());
         smqttConfig.setHttpConfig(HttpConfig.builder()
                 .enable(false).build());
         smqttConfig.setWebsocketConfig(WebsocketConfig.builder()
@@ -104,6 +104,11 @@ public class BootstrapConfig {
         @JsonProperty("meter")
         private MeterConfig meterConfig;
 
+        /**
+         * acl配置
+         */
+        @JsonProperty("acl")
+        private AclConfig acl;
     }
 
     @Data
@@ -114,19 +119,16 @@ public class BootstrapConfig {
 
         @Builder.Default
         private ConnectModel connectModel = ConnectModel.UNIQUE;
+
+        /**
+         * 不互踢时间 默认60s
+         */
+        @Builder.Default
+        private Integer notKickSecond = 60;
         /**
          * 端口
          */
         private Integer port;
-
-        /**
-         * 用户名
-         */
-        private String username;
-        /**
-         * 密码
-         */
-        private String password;
         /**
          * 二进制日志（需要开启root 为debug）
          */
@@ -177,7 +179,7 @@ public class BootstrapConfig {
         /**
          * 单个连接读写字节限制
          */
-        private String  channelReadWriteSize;
+        private String channelReadWriteSize;
 
 
         /**
@@ -437,7 +439,6 @@ public class BootstrapConfig {
 
     /**
      * 指标配置
-
      */
     @Data
     @Builder

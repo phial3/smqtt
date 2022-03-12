@@ -41,9 +41,9 @@ public class MqttChannel {
 
     private ChannelStatus status;
 
-    private long activeTime;
-
     private long authTime;
+
+    private long connectTime;
 
     private boolean sessionPersistent;
 
@@ -99,7 +99,6 @@ public class MqttChannel {
         mqttChannel.setReplyMqttMessageMap(new ConcurrentHashMap<>());
         mqttChannel.setMqttMessageSink(new MqttMessageSink());
         mqttChannel.setQos2MsgCache(new ConcurrentHashMap<>());
-        mqttChannel.setActiveTime(System.currentTimeMillis());
         mqttChannel.setConnection(connection);
         mqttChannel.setStatus(ChannelStatus.INIT);
         mqttChannel.setAddress(connection.address().toString());
@@ -273,7 +272,8 @@ public class MqttChannel {
                 MqttMessage reply = getReplyMqttMessage(mqttMessage);
 
                 Runnable runnable = () -> mqttChannel.write(Mono.just(reply)).subscribe();
-                Runnable cleaner = () -> MessageUtils.safeRelease(reply);;
+                Runnable cleaner = () -> MessageUtils.safeRelease(reply);
+
                 Ack ack = new RetryAck(mqttChannel.generateId(reply.fixedHeader().messageType(), getMessageId(reply)),
                         5, 5, runnable, mqttChannel.getTimeAckManager(), cleaner);
                 ack.start();

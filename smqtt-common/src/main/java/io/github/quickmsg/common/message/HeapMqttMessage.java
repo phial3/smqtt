@@ -1,6 +1,7 @@
 package io.github.quickmsg.common.message;
 
 import io.github.quickmsg.common.utils.JacksonUtil;
+import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.util.internal.StringUtil;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -31,6 +32,8 @@ public class HeapMqttMessage {
 
     private byte[] message;
 
+    private MqttProperties properties;
+
 
     public Map<String, Object> getKeyMap() {
         Map<String, Object> keys = new HashMap<>(5);
@@ -43,6 +46,7 @@ public class HeapMqttMessage {
     }
 
     private Object getJsonObject(String body) {
+        body=body.replaceAll("\r|\n|\t", "");
         if (body.startsWith("{") && body.endsWith("}")) {
             return JacksonUtil.json2Bean(body, JsonMap.class);
         } else if (body.startsWith("[") && body.endsWith("]")) {
