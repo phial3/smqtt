@@ -2,12 +2,8 @@ smqtt:
   logLevel: INFO # 系统日志
   tcp: # tcp配置
     connectModel: UNIQUE # UNIQUE 唯一 KICK 互踢
-    port: 18886 # mqtt端口号
-    username: smqtt # mqtt连接默认用户名  生产环境建议spi去注入PasswordAuthentication接口
-    password: smqtt  # mqtt连接默认密码 生产环境建议spi去注入PasswordAuthentication接口
-    connectModel: KICK # UNIQUE 唯一 KICK 互踢
     notKickSecond: 30 # KICK互踢模式生效, 单位秒, 指定时间内客户端不互踢, 避免客户端自动连接持续互踢
-    port: 1883 # mqtt端口号
+    port: 18886 # mqtt端口号
     wiretap: false  # 二进制日志 前提是 smqtt.logLevel = DEBUG
     bossThreadSize: 8  # boss线程 默认=cpu核心数
     workThreadSize: 16 # work线程 默认=cpu核心数*2
@@ -24,16 +20,15 @@ smqtt:
       enable: false # 开关
       key: /user/server.key # 指定ssl文件 默认系统生成
       crt: /user/server.crt # 指定ssl文件 默认系统生成
-  http: # http相关配置 端口固定18887
   acl:
-    aclPolicy: NONE # NONE or FILE or JDBC
+    aclPolicy: JDBC # NONE or FILE or JDBC
     filePath:  # FILE时配置filePath
     jdbcAclConfig:
       driver: com.mysql.jdbc.Driver
-      url: jdbc:mysql://localhost:3306/smqtt
+      url: jdbc:mysql://localhost:18889/smqtt
       username: root
       password: 123
-  http: # http相关配置 端口固定60000
+  http: # http相关配置 端口固定18887
     enable: true # 开关
     accessLog: true # http访问日志
     ssl: # ssl配置
@@ -58,7 +53,7 @@ smqtt:
   meter:
     meterType: PROMETHEUS # INFLUXDB , PROMETHEUS
   db: # 参数值配置参考https://github.com/brettwooldridge/HikariCP/wiki/MySQL-Configuration
-    jdbcUrl: jdbc:mysql://localhost:3306/smqtt
+    jdbcUrl: jdbc:mysql://localhost:18889/smqtt
     username: root
     password: 123
     dataSourceCachePrepStmts: false
